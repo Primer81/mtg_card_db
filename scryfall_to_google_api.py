@@ -8,7 +8,8 @@ import sys
 from google.oauth2.credentials import Credentials
 from googleapiclient.errors import HttpError
 from sheets_range import SheetsRange
-from typing import Any
+from collections import OrderedDict
+from typing import Any, Optional
 
 # The ID of the target spreadsheet.
 GOOGLE_SPREADSHEET_ID = '1c9XOUGjgSvjcJ_dOG1nCdsLlAP5YFavsFhzEPJIhaKI'
@@ -36,6 +37,7 @@ def main():
 
 def update_spreadsheet_with_scryfall_data() -> None:
     scryfall_cards: list = scryfall_api.load_all_scryfall_cards()
+    scryfall_cards: list = process_scryfall_cards(scryfall_cards)
     creds: Credentials = google_api.obtain_google_api_credentials()
     try:
         sheet = google_api.obtain_google_api_service(creds)
@@ -46,6 +48,23 @@ def update_spreadsheet_with_scryfall_data() -> None:
         update_all_ranges_with_scryfall_data(sheet, scryfall_cards, columns)
     except HttpError as err:
         print(err)
+
+
+def process_scryfall_cards(cards: list) -> list:
+    cards_by_name: OrderedDict[str, dict] = OrderedDict()
+
+    def __sort_by_name(card_: dict) -> str:
+        return card_[scryfall_api.SCRYFALL_CARD_ATTR_NAME]
+    cards_sorted: list = sorted(cards, key=__sort_by_name)
+
+    for card in cards_sorted:
+        card_name = card["name"]
+        if card_name not in cards_by_name or card.get(scryfall_api.SCRYFALL_CARD_ATTR_IMAGE_URIS) is not None:
+            cards_by_name[card_name] = card
+
+    def __map_mtg_cards(card_: dict):
+        return dict(card_.items())
+    return list(map(__map_mtg_cards, cards_by_name.values()))
 
 
 def update_all_ranges_with_scryfall_data(
@@ -80,14 +99,27 @@ def update_one_range_with_scryfall_data(
     return populating
 
 
-def get_attribute_from_card(card: dict, attr: str) -> str:
-    if attr == "image_uris":
-        value: str = scryfall_api.find_normal_image_uri_in_card(card)
-    else:
-        value = card.get(attr)
-        if type(value) is list:
-            value: str = value[0]
+def get_attribute_from_card(card: dict, attr: str) -> Optional[str]:
+    value: Optional[str] = card.get(attr)
+    if attr == scryfall_api.SCRYFALL_CARD_ATTR_IMAGE_URIS:
+        value = scryfall_api.find_normal_image_uri_in_card(card)
+    elif attr == "type_line":
+        value = parse_primary_type_from_type_line(value)
+    elif value and type(value) is list:
+        value = value[0]
     return value
+
+
+def parse_primary_type_from_type_line(type_line: Optional[str]) -> Optional[str]:
+    em_dash_str: str = "\u2014"  # Equal to the wide '—' character as opposed to '-'.
+    primary_type: Optional[str] = None
+    types: Optional[list[str]] = None
+    if type_line:
+        types: list[str] = type_line.split(em_dash_str)
+    if types:
+        primary_types: list[str] = types[0].strip().split(' ')
+        primary_type = primary_types[-1]
+    return primary_type
 
 
 def update_range_with_data(
