@@ -43,29 +43,48 @@ def update_spreadsheet_with_scryfall_price_data() -> None:
     try:
         sheet = google_api.obtain_google_api_service(creds)
         header: list[tuple[str, str]] = obtain_header_from_sheet(sheet)
-        price_column: str = get_prices_column_from_header(header)
+        price_column: str = get_column_from_header(header, "Prices")
+        scryfall_name_column: str = get_column_from_header(header, "Scryfall Name")
         print(clear_column_in_sheet(sheet, price_column))
+        print(clear_column_in_sheet(sheet, scryfall_name_column))
         raw_card_info: list[list[str]] = obtain_raw_card_info_from_sheet(sheet)
         all_card_info: list[Optional[CardInfo]] = process_raw_card_info(raw_card_info)
-        prices: list[str] = find_price_for_all_card_info(all_card_info)
-        price_range: SheetsRange = SheetsRange(price_column, price_column, 2, 100_000)
-        update_range_with_data(sheet, price_range, [prices], major_dimension="COLUMNS")
+        scryfall_cards: list[dict] = find_cards_for_all_card_info(all_card_info)
+
+        prices_and_names = []
+        for scryfall_card, card_info in zip(scryfall_cards, all_card_info):
+            price_and_name = ['', '']
+            if card_info and scryfall_card:
+                prices = scryfall_card["prices"]
+                price = prices["usd"]
+                if card_info.foil_type != FoilType.NONE:
+                    price = prices["usd_foil"]
+                if price:
+                    price = float(price)
+                price_and_name = [price, scryfall_card["name"]]
+            prices_and_names.append(price_and_name)
+
+        price_range: SheetsRange = SheetsRange(price_column, scryfall_name_column, 2, 100_000)
+        print(update_range_with_data(sheet, price_range, prices_and_names))
     except HttpError as err:
         print(err)
 
 
-def find_price_for_all_card_info(all_card_info: list[Optional[CardInfo]]) -> list[str]:
-    prices: list[str] = []
+def find_cards_for_all_card_info(all_card_info: list[Optional[CardInfo]]) -> list[dict]:
+    cards: list[Optional[dict]] = []
     for card_info in all_card_info:
-        price: str = ''
+        card: Optional[dict] = None
         if card_info:
             try:
-                price = scryfall_prices.find_price_for_card_info(card_info)
+                search_result = scryfall_prices.search_for_card(card_info)
+                print(search_result)
+                if search_result and search_result["total_cards"] > 0:
+                    card = search_result["data"][0]
             except KeyError:
                 print(f"Failed to lookup the price of card: {card_info}")
                 pass
-        prices.append(price)
-    return prices
+        cards.append(card)
+    return cards
 
 
 def update_range_with_data(
@@ -116,7 +135,7 @@ def process_raw_card_info(raw_card_info: list[list[str]]) -> list[Optional[CardI
                 set_id = value
             elif attr == "Language":
                 language = value
-            elif attr == "Foil":
+            elif attr == "Foil Type / Art Stamp":
                 foil_type = get_foil_type_from_str(value)
             else:
                 # Ignore this attribute
@@ -124,6 +143,7 @@ def process_raw_card_info(raw_card_info: list[list[str]]) -> list[Optional[CardI
         if card_name and collector_number and set_id and language and foil_type:
             card_info = CardInfo(card_name, set_id, collector_number, language, foil_type)
         all_card_info.append(card_info)
+        print(f"Card info: '{card_name}'\t'{collector_number}'\t'{set_id}'\t'{language}'\t'{foil_type}'\t'{card_info}'")
     return all_card_info
 
 
@@ -135,15 +155,17 @@ def get_foil_type_from_str(foil_type: str) -> FoilType:
         result = FoilType.TRADITIONAL
     elif foil_type == "Surge":
         result = FoilType.SURGE
+    elif foil_type == "Gold Stamp":
+        result = FoilType.GOLD_STAMP
     else:
         raise ValueError(f"Could not match foil type string to type: {foil_type}")
     return result
 
 
-def get_prices_column_from_header(header: list[tuple[str, str]]) -> str:
+def get_column_from_header(header: list[tuple[str, str]], column_name: str) -> str:
     price_column: Optional[str] = None
     for head in header:
-        if head[0] == "Prices":
+        if head[0] == column_name:
             price_column = head[1]
     if price_column is None:
         raise ValueError("Failed to find the 'Prices' column in spreadsheet")

@@ -6,6 +6,7 @@ class FoilType(Enum):
     NONE = 1
     TRADITIONAL = 2
     SURGE = 3
+    GOLD_STAMP = 4
 
 
 class CardInfo(NamedTuple):
