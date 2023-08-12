@@ -1,13 +1,13 @@
-import scryfall_prices_to_google_api
-import scryfall_to_google_api
-import mtg_to_google_api
+import prices.scryfall_prices_to_google_api
+import database.scryfall_to_google_api
+import database.mtg_to_google_api
 import sys
 
 
 def main():
-    mtg_to_google_api.main()
-    scryfall_to_google_api.main()
-    scryfall_prices_to_google_api.main()
+    database.mtg_to_google_api.main()
+    database.scryfall_to_google_api.main()
+    prices.scryfall_prices_to_google_api.main()
 
 
 if __name__ == '__main__':
