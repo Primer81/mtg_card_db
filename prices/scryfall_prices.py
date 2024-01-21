@@ -13,7 +13,7 @@ SCRYFALL_API_ENDPOINT_CARD_SEARCH = 'https://api.scryfall.com/cards/search?inclu
 
 
 def main():
-    example_card_info: CardInfo = CardInfo("LTR", "225", "EN", FoilType.SURGE)
+    example_card_info: CardInfo = CardInfo("dummy name", "LTR", "225", "EN", FoilType.SURGE)
     print(find_price_for_card_info(example_card_info))
 
 
