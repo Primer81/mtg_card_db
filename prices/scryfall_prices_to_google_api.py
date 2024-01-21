@@ -1,4 +1,3 @@
-import scryfall_prices
 import sheets_range
 import scryfall_api
 import google_api
@@ -13,6 +12,7 @@ from sheets_range import SheetsRange
 from collections import OrderedDict
 from card_info import CardInfo, FoilType
 from typing import Any, Optional
+from prices import scryfall_prices
 
 # The ID of the target spreadsheet.
 GOOGLE_SPREADSHEET_ID = '12BXt6lJo7ianQ6jLRUhm4_LWBtvs7sOqH9fncMbAw8k'
