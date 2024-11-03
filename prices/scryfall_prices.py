@@ -9,7 +9,7 @@ from card_info import CardInfo, FoilType
 # {2} - Language (EN, RU, etc.)
 SCRYFALL_API_ENDPOINT_CARD_SEARCH = 'https://api.scryfall.com/cards/search?include_extras=true&' \
                                     'include_multilingual=true&include_variations=true&unique=prints&' \
-                                    'q=e%3A{0}+cn%3A{1}+lang%3A{2}'
+                                    'q=e%3A{0}+cn%3A"{1}"+lang%3A{2}'
 
 
 def main():
